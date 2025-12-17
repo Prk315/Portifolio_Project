@@ -38,18 +38,13 @@ wheels/
 .DS_Store
 Thumbs.db
 
-# Data files (large datasets)
-data/creditcard.csv
-data/*.npy
-data/*.pkl
+# Data (keep structure but ignore large files if needed)
+# Uncomment if you don't want to commit large data files:
+# data/*.npy
+# data/*.csv
 
-# Trained models
-data/models/*.joblib
-data/results/
-
-# Logs
-logs/
-*.log
+# Models (uncomment if models are too large)
+# data/*.joblib
 
 # Test cache
 .pytest_cache/
