@@ -1,185 +1,131 @@
-# Usage Guide: Real-Time Fraud Detection System
+# Usage Guide
 
-Quick guide to running the real-time fraud detection project.
-
----
+Quick guide to running the project components.
 
 ## Setup
 
-### 1. Install Dependencies
-
 ```bash
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-### 2. Download Dataset
+## Running the Notebooks
 
-Download the Credit Card Fraud Detection dataset:
-1. Visit: https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud
-2. Download `creditcard.csv`
-3. Place it in the `data/` directory
+Execute in this order for full pipeline:
 
 ```bash
-mkdir -p data
-# Place creditcard.csv in data/
+jupyter notebook
+
+# Then open in order:
+# 1. notebook.ipynb - Exploratory data analysis
+# 2. transform.ipynb - Data preprocessing
+# 3. trainAndFeatureEngineer.ipynb - Baseline models
+# 4. hyperparameterTuning.ipynb - Advanced models
+# 5. improvedModels.ipynb - Class balancing with SMOTE
+# 6. modelExplainability.ipynb - SHAP analysis
+# 7. visualizeResults.ipynb - Result visualization
 ```
 
----
-
-## Running the System
-
-### Full Pipeline (Recommended)
-
-Run everything end-to-end:
+## Running the Streamlit Dashboard
 
 ```bash
-python run_fraud_detection.py --mode full
+streamlit run app.py
 ```
 
-This executes:
-1. Temporal train/validation split
-2. Time-window feature engineering
-3. Model training with SMOTE
-4. Threshold tuning
-5. Streaming simulation
-6. Kafka mock pipeline
+Then open your browser to `http://localhost:8501`
 
-### Train Only
+**Features:**
+- Manual entry mode: Input student data via form
+- CSV upload mode: Batch predictions from file
+- Download predictions as CSV
 
-Train and save the model:
+## Running Tests
 
 ```bash
-python run_fraud_detection.py --mode train
+# Run all tests
+pytest tests/ -v
+
+# Run specific test file
+pytest tests/test_preprocessing.py -v
+
+# Run with coverage
+pytest tests/ --cov=. --cov-report=html
 ```
 
-### Streaming Simulation
+## Model Performance Summary
 
-Run real-time inference simulation:
+| Model | Accuracy | F1 Score |
+|-------|----------|----------|
+| Gradient Boosting | 77.0% | 0.760 |
+| Random Forest | 76.8% | 0.756 |
+| Logistic Regression | 76.8% | 0.758 |
 
-```bash
-python run_fraud_detection.py --mode stream
-```
+## Making Predictions
 
-### Kafka Pipeline
-
-Run the mock Kafka streaming pipeline:
-
-```bash
-python run_fraud_detection.py --mode kafka
-```
-
----
-
-## Configuration
-
-Edit `config/config.yaml` to customize:
-
-```yaml
-# Model settings
-model:
-  type: "random_forest"  # Options: logistic, random_forest, gradient_boosting
-  use_smote: true
-
-# Alert thresholds
-alerting:
-  fraud_probability_threshold: 0.8
-  high_risk_threshold: 0.95
-
-# Time windows
-features:
-  time_windows: [10, 50, 100, 500]
-```
-
----
-
-## Python API Usage
-
-### Basic Training
+### Using Python
 
 ```python
-from src.data.data_loader import FraudDataLoader
-from src.models.fraud_detector import FraudDetector
+import joblib
+import numpy as np
+import pandas as pd
 
-# Load data with temporal split
-loader = FraudDataLoader("data/creditcard.csv")
-df = loader.load_data()
-train_df, val_df, test_df = loader.temporal_split(df)
+# Load artifacts
+model = joblib.load('data/best_model_final.joblib')
+preprocessor = joblib.load('data/preprocessor_fe.joblib')
+selector = joblib.load('data/selector.joblib')
+le = joblib.load('data/label_encoder.joblib')
 
-# Train model
-detector = FraudDetector(model_type="random_forest", use_smote=True)
-detector.fit(X_train, y_train)
-detector.tune_threshold(X_val, y_val)
+# Prepare your data
+student_data = pd.DataFrame([{
+    'Age at enrollment': 20,
+    'Gender': 1,
+    # ... all 36 features
+}])
 
-# Evaluate
-metrics = detector.evaluate(X_test, y_test)
+# Apply feature engineering (see app.py for engineer_features function)
+student_fe = engineer_features(student_data)
+
+# Transform and predict
+X = preprocessor.transform(student_fe)
+X_selected = selector.transform(X)
+prediction = model.predict(X_selected)[0]
+probabilities = model.predict_proba(X_selected)[0]
+
+print(f"Prediction: {le.classes_[prediction]}")
+print(f"Probabilities: {dict(zip(le.classes_, probabilities))}")
 ```
 
-### Streaming Simulation
+## Project Structure
 
-```python
-from src.streaming.stream_simulator import StreamSimulator
-
-simulator = StreamSimulator(data=test_df, model=detector)
-results_df = simulator.stream(alert_threshold=0.8)
-metrics = simulator.get_performance_metrics()
 ```
-
-### Drift Detection
-
-```python
-from src.monitoring.drift_detector import DriftDetector
-
-drift_detector = DriftDetector(window_size=1000)
-for features, label in stream:
-    drift_detector.add_sample(features, label)
-
-report = drift_detector.get_drift_report()
-if report['drift_detected']:
-    print("⚠️ Drift detected! Retrain model.")
+.
+├── README.md              # Main documentation
+├── USAGE.md              # This file
+├── requirements.txt       # Dependencies
+├── app.py                # Streamlit dashboard
+├── data/                 # Data and models
+├── docs/                 # GitHub Pages site
+├── tests/                # Unit tests
+└── *.ipynb              # Jupyter notebooks
 ```
-
----
-
-## Expected Results
-
-### Model Performance
-- **ROC-AUC**: 0.98
-- **Precision**: 0.92
-- **Recall**: 0.85
-- **F1 Score**: 0.88
-- **False Positive Rate**: 0.02%
-
-### Streaming Performance
-- **Average Latency**: 2.3ms
-- **P95 Latency**: 4.1ms
-- **Throughput**: 1,200+ tx/sec
-
----
 
 ## Troubleshooting
 
-### Dataset Not Found
-Download from Kaggle and place in `data/creditcard.csv`
+### Missing Data Files
+If you get errors about missing files in `data/`, run the notebooks in order to generate them.
 
-### Memory Error with SMOTE
-Set `use_smote: false` in config.yaml
+### SHAP Installation Issues
+If SHAP fails to install:
+```bash
+pip install shap --no-build-isolation
+```
 
-### Low Performance
-- Ensure temporal split (not random)
-- Add more time-window features
-- Try gradient_boosting model
+### Memory Issues
+The full dataset requires ~2GB RAM. If you encounter memory errors, reduce sample sizes in notebooks.
 
----
+## Further Reading
 
-## Production Deployment
-
-When deploying to production:
-- Replace mock Kafka with real Kafka
-- Set up Redis for feature caching
-- Implement model serving (SageMaker, TF Serving)
-- Configure monitoring (Grafana, Datadog)
-- Set up alerting (PagerDuty, Slack)
-
----
-
-For detailed documentation, see [README.md](README.md)
+- [Dataset Source](https://archive.ics.uci.edu/dataset/697/predict+students+dropout+and+academic+success)
+- [scikit-learn Documentation](https://scikit-learn.org/)
+- [SHAP Documentation](https://shap.readthedocs.io/)
+- [Streamlit Documentation](https://docs.streamlit.io/)
